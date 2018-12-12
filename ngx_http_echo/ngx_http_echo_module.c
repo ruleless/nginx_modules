@@ -19,7 +19,7 @@ static ngx_command_t ngx_http_echo_commands[] = {
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_echo_loc_conf_t, ed),
       NULL },
-    
+
     ngx_null_command
 };
 
@@ -59,7 +59,7 @@ ngx_http_echo_handler(ngx_http_request_t *r)
     ngx_buf_t *b;
     ngx_chain_t out;
     ngx_http_echo_loc_conf_t *elcf;
-    
+
     elcf = ngx_http_get_module_loc_conf(r, ngx_http_echo_module);
     if (!(r->method & (NGX_HTTP_HEAD|NGX_HTTP_GET|NGX_HTTP_POST))) {
         return NGX_HTTP_NOT_ALLOWED;
@@ -74,20 +74,20 @@ ngx_http_echo_handler(ngx_http_request_t *r)
             return rc;
         }
     }
-    
+
     b = ngx_pcalloc(r->pool, sizeof(ngx_buf_t));
     if (b == NULL) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "Failed to allocate response buffer.");
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
-    
+
     out.buf = b;
     out.next = NULL;
     b->pos = elcf->ed.data;
     b->last = elcf->ed.data + (elcf->ed.len);
     b->memory = 1;
     b->last_buf = 1;
-    
+
     rc = ngx_http_send_header(r);
     if (rc != NGX_OK) {
         return rc;
