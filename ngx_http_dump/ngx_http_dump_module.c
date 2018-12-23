@@ -1,6 +1,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_http.h>
+#include <ngx_http_request.h>
 
 typedef struct {
     ngx_flag_t  dump_all;
@@ -53,7 +54,6 @@ ngx_module_t ngx_http_dump_module = {
     NGX_MODULE_V1_PADDING
 };
 
-
 static ngx_http_output_header_filter_pt  ngx_http_next_header_filter;
 static ngx_http_output_body_filter_pt    ngx_http_next_body_filter;
 
@@ -61,6 +61,27 @@ static ngx_http_output_body_filter_pt    ngx_http_next_body_filter;
 static ngx_int_t
 ngx_http_dump_hanlder(ngx_http_request_t *r)
 {
+    ngx_list_part_t *part;
+    ngx_table_elt_t *header;
+    ngx_uint_t i;
+
+    part = &r->headers_in.headers.part;
+    header = part->elts;
+    for (i = 0; ; i++) {
+        if (i >= part->nelts) {
+            if (part->next == NULL) {
+                break;
+            }
+
+            part = part->next;
+            header = part->elts;
+            i = 0;
+        }
+
+        ngx_log_error(NGX_LOG_INFO, r->connection->log, 0,
+                      "%V:%V", &header[i].key, &header[i].value);
+    }
+
     return NGX_DECLINED;
 }
 
