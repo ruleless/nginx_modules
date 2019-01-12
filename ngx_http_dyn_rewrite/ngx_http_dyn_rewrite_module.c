@@ -6,17 +6,24 @@
 
 typedef struct {
     ngx_flag_t enable;
-    ngx_str_t redirect_uri;
+    ngx_str_t  redirect_uri;
 } ngx_http_dyn_rewrite_loc_conf_t;
 
+typedef struct {
+    ngx_str_t original_uri;
+} ngx_http_dyn_rewrite_ctx_t;
+
 static ngx_int_t ngx_http_dyn_rewrite_add_variables(ngx_conf_t *cf);
+static ngx_int_t ngx_http_dyn_rewrite_origin_uri_variable(ngx_http_request_t *r,
+                                                          ngx_http_variable_value_t *v, uintptr_t data);
+
 static ngx_int_t ngx_http_dyn_rewrite_init(ngx_conf_t *cf);
 static void *ngx_http_dyn_rewrite_create_loc_conf(ngx_conf_t *cf);
 static char *ngx_http_dyn_rewrite_merge_loc_conf(ngx_conf_t *cf,
                                                  void *parent, void *child);
 
 
-static ngx_http_variable_t  ngx_http_socks_vars[] = {
+static ngx_http_variable_t  ngx_http_dyn_rewrite_vars[] = {
     { ngx_string("original_uri"), NULL, ngx_http_dyn_rewrite_origin_uri_variable, 0,
       NGX_HTTP_VAR_CHANGEABLE|NGX_HTTP_VAR_NOCACHEABLE, 0 },
 
@@ -75,11 +82,24 @@ static ngx_int_t
 ngx_http_dyn_rewrite_handler(ngx_http_request_t *r)
 {
     ngx_http_dyn_rewrite_loc_conf_t *rlcf;
+    ngx_http_dyn_rewrite_ctx_t *ctx;
 
     rlcf = ngx_http_get_module_loc_conf(r, ngx_http_dyn_rewrite_module);
     if (rlcf == NULL || !rlcf->enable || rlcf->redirect_uri.len == 0) {
         return NGX_DECLINED;
     }
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_dyn_rewrite_module);
+    if (ctx == NULL) {
+        ctx = ngx_pcalloc(r->pool, sizeof(ngx_http_dyn_rewrite_ctx_t));
+        if (ctx == NULL) {
+            return NGX_HTTP_INTERNAL_SERVER_ERROR;
+        }
+        ngx_http_set_ctx(r, ctx, ngx_http_dyn_rewrite_module);
+    }
+
+    ctx->original_uri.len = r->uri.len;
+    ctx->original_uri.data = r->uri.data;
 
     r->uri = rlcf->redirect_uri;
     if (r->uri.len == 0) {
@@ -107,6 +127,28 @@ ngx_http_dyn_rewrite_add_variables(ngx_conf_t *cf)
         var->get_handler = v->get_handler;
         var->data = v->data;
     }
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_http_dyn_rewrite_origin_uri_variable(ngx_http_request_t *r,
+                                         ngx_http_variable_value_t *v, uintptr_t data)
+{
+    ngx_http_dyn_rewrite_ctx_t  *ctx;
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_dyn_rewrite_module);
+
+    if (ctx == NULL) {
+        v->not_found = 1;
+        return NGX_OK;
+    }
+
+    v->len = ctx->original_uri.len;
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 0;
+    v->data = ctx->original_uri.data;
 
     return NGX_OK;
 }
